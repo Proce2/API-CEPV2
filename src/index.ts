@@ -9,7 +9,7 @@ const require = createRequire(import.meta.url);
 const fav16 = readFileSync(require.resolve('swagger-ui-dist/favicon-16x16.png'));
 const fav32 = readFileSync(require.resolve('swagger-ui-dist/favicon-32x32.png'));
 
-const app = Fastify();
+const app = Fastify({ logger: true });
 
 await app.register(swagger, {
   openapi: { info: { title: 'CEP API', version: '0.1.0' } }
@@ -54,5 +54,13 @@ app.setNotFoundHandler((req, reply) => {
   reply.code(404).send();
 });
 
-await app.listen({ port: 3000, host: 'localhost' });
-console.log('Server listening on http://localhost:3000/docs');
+// bind to Render's port and 0.0.0.0; log on ready
+const port = Number(process.env.PORT) || 3000;
+
+app.addHook('onReady', async () => {
+  app.log?.info?.(`listening on ${port}`);
+  console.log(`listening on ${port}`);
+});
+
+await app.listen({ port, host: '0.0.0.0' });
+console.log(`✅ up on 0.0.0.0:${port}`);
