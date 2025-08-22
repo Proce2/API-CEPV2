@@ -29,6 +29,9 @@ await app.register(swaggerUi, {
 // register handlers
 await import('./handlers/cep.js').then(m => m.default(app));
 
+app.get('/', async () => ({ ok: true, docs: '/docs' }));
+app.get('/healthz', async () => ({ ok: true }));
+
 // One place to shape ALL errors (400/500/etc.)
 app.setErrorHandler((err, req, reply) => {
   const status = err.statusCode && err.statusCode >= 400 ? err.statusCode : 500;
@@ -54,5 +57,7 @@ app.setNotFoundHandler((req, reply) => {
   reply.code(404).send();
 });
 
-await app.listen({ port: 3000, host: 'localhost' });
-console.log('Server listening on http://localhost:3000/docs');
+// bind to the container port Northflank expects
+const port = Number(process.env.PORT) || 8080;
+await app.listen({ port, host: '0.0.0.0' });
+console.log(`listening on http://0.0.0.0:${port}`);
