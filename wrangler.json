@@ -2,7 +2,5 @@
   "name": "cep-api",
   "main": "dist/index.js",
   "compatibility_date": "2025-08-23",
-  "assets": {
-    "directory": "./dist"
-  }
+  "compatibility_flags": ["nodejs_compat"]
 }
