@@ -2,12 +2,6 @@ import Fastify from 'fastify';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 
-import { readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
-
-const require = createRequire(import.meta.url);
-const fav16 = readFileSync(require.resolve('swagger-ui-dist/favicon-16x16.png'));
-const fav32 = readFileSync(require.resolve('swagger-ui-dist/favicon-32x32.png'));
 
 const app = Fastify();
 
@@ -18,10 +12,6 @@ await app.register(swagger, {
 await app.register(swaggerUi, {
   routePrefix: '/docs',
   theme: {
-    favicon: [
-      { filename: 'swagger-16.png', rel: 'icon', sizes: '16x16', type: 'image/png', content: fav16 },
-      { filename: 'swagger-32.png', rel: 'icon', sizes: '32x32', type: 'image/png', content: fav32 }
-    ],
     title: 'CEP API Docs'
   }
 });
@@ -54,5 +44,20 @@ app.setNotFoundHandler((req, reply) => {
   reply.code(404).send();
 });
 
-await app.listen({ port: 3000, host: 'localhost' });
-console.log('Server listening on http://localhost:3000/docs');
+export default {
+  async fetch(request: any, env: unknown, ctx: any): Promise<any> {
+    await app.ready();
+    const url = new URL(request.url);
+    const payload = request.method === 'GET' || request.method === 'HEAD' ? undefined : await request.text();
+    const res = await app.inject({
+      method: request.method,
+      url: url.pathname + url.search,
+      headers: Object.fromEntries(request.headers),
+      payload
+    });
+    return new Response(res.body, {
+      status: res.statusCode,
+      headers: res.headers as any
+    });
+  }
+};
