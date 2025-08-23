@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
-    "deploy": "npx wrangler deploy"
+    "deploy": "npx wrangler deploy",
+    "test": "npm run build"
   },
   "dependencies": {
     "@fastify/swagger": "^8.14.0",
