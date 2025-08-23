@@ -1,6 +1,8 @@
+
 import Fastify from 'fastify'
 import swagger from '@fastify/swagger'
 const app = Fastify({ logger: false })
+
 
 await app.register(swagger, {
   openapi: { info: { title: 'CEP API', version: '0.1.0' } }
