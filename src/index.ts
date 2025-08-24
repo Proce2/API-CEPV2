@@ -1,58 +1,128 @@
-import Fastify from 'fastify';
-import swagger from '@fastify/swagger';
-import swaggerUi from '@fastify/swagger-ui';
 
-import { readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
+import { Hono } from 'hono'
+import { swaggerUI } from '@hono/swagger-ui'
+import { lookupCep } from './services/viacep'
 
-const require = createRequire(import.meta.url);
-const fav16 = readFileSync(require.resolve('swagger-ui-dist/favicon-16x16.png'));
-const fav32 = readFileSync(require.resolve('swagger-ui-dist/favicon-32x32.png'));
+function validateCep(raw: string | null): string | null {
+  const n = (raw ?? '').replace(/-/g, '')
+  if (!n) return 'CEP is required.'
+  if (n.length !== 8 || !/^[0-9]+$/.test(n)) return 'CEP must be 8 digits.'
+  return null
+}
 
-const app = Fastify();
-
-await app.register(swagger, {
-  openapi: { info: { title: 'CEP API', version: '0.1.0' } }
-});
-
-await app.register(swaggerUi, {
-  routePrefix: '/docs',
-  theme: {
-    favicon: [
-      { filename: 'swagger-16.png', rel: 'icon', sizes: '16x16', type: 'image/png', content: fav16 },
-      { filename: 'swagger-32.png', rel: 'icon', sizes: '32x32', type: 'image/png', content: fav32 }
-    ],
-    title: 'CEP API Docs'
+// Minimal OpenAPI spec (served at /openapi.json)
+const openapi = {
+  openapi: '3.0.3',
+  info: { title: 'CEP API', version: '0.1.0' },
+  paths: {
+    '/CEP/BuscaCEP': {
+      get: {
+        parameters: [
+          { name: 'cep', in: 'query', schema: { type: 'string' }, description: '8 digits' }
+        ],
+        responses: {
+          '200': {
+            description: 'Success',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    cep: { type: 'string' },
+                    street: { type: 'string' },
+                    neighborhood: { type: 'string' },
+                    city: { type: 'string' },
+                    state: { type: 'string' }
+                  }
+                }
+              }
+            }
+          },
+          '400': { description: 'Bad Request' },
+          '404': { description: 'Not Found' }
+        }
+      }
+    }
   }
-});
+} as const
 
-// register handlers
-await import('./handlers/cep.js').then(m => m.default(app));
+const app = new Hono()
 
-// One place to shape ALL errors (400/500/etc.)
-app.setErrorHandler((err, req, reply) => {
-  const status = err.statusCode && err.statusCode >= 400 ? err.statusCode : 500;
-  if (status === 400) {
-    const message = (err as any)?.message ?? 'Bad Request';
-    reply.raw.removeHeader('content-type');
-    reply.raw.removeHeader('connection');
-    reply.raw.removeHeader('transfer-encoding');
-    return reply.code(400).type('application/json; charset=utf-8').send(JSON.stringify({ error: message }));
-  }
-  if (status === 500) reply.raw.statusMessage = 'response status is 500'; // optional (HTTP/1.1)
-  reply.raw.removeHeader('content-type');
-  reply.raw.removeHeader('connection');
-  reply.raw.removeHeader('transfer-encoding');
-  reply.code(status).send();
-});
+// 1) Serve a favicon at the standard path browsers auto-request
+const SWAGGER_FAV16 = 'https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/favicon-16x16.png'
+const SWAGGER_FAV32 = 'https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/favicon-32x32.png'
 
-// 404s in one place
-app.setNotFoundHandler((req, reply) => {
-  reply.raw.removeHeader('content-type');
-  reply.raw.removeHeader('connection');
-  reply.raw.removeHeader('transfer-encoding');
-  reply.code(404).send();
-});
+app.get('/favicon.ico', async (c) => {
+  const r = await fetch(SWAGGER_FAV32)
+  return new Response(r.body, {
+    headers: {
+      'content-type': 'image/png',
+      'cache-control': 'public, max-age=31536000, immutable'
+    }
+  })
+})
 
-await app.listen({ port: 3000, host: 'localhost' });
-console.log('Server listening on http://localhost:3000/docs');
+// 2) (Optional) also expose the PNG paths some browsers/tools might request
+app.get('/favicon-16x16.png', async (c) => {
+  const r = await fetch(SWAGGER_FAV16)
+  return new Response(r.body, {
+    headers: {
+      'content-type': 'image/png',
+      'cache-control': 'public, max-age=31536000, immutable'
+    }
+  })
+})
+
+app.get('/favicon-32x32.png', async (c) => {
+  const r = await fetch(SWAGGER_FAV32)
+  return new Response(r.body, {
+    headers: {
+      'content-type': 'image/png',
+      'cache-control': 'public, max-age=31536000, immutable'
+    }
+  })
+})
+
+
+
+// Spec + full Swagger UI (blue GET, Try it out)
+app.get('/openapi.json', (c) => c.json(openapi))
+app.get('/docs-raw', swaggerUI({ url: '/openapi.json' }))
+
+function withFavicons(html: string) {
+  const tags = `
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+  `.trim()
+  return html.includes('</head>')
+    ? html.replace('</head>', `${tags}\n</head>`)
+    : `${tags}\n${html}`
+}
+
+app.get('/docs', async (c) => {
+  // fetch the original generated UI HTML and augment it
+  const rawUrl = new URL('/docs-raw', c.req.url).toString()
+  const r = await fetch(rawUrl)
+  const html = await r.text()
+  return c.html(withFavicons(html))
+})
+
+// API
+app.get('/CEP/BuscaCEP', async (c) => {
+  const cep = c.req.query('cep') ?? null
+  const err = validateCep(cep)
+  if (err) return c.json({ error: err }, 400)
+
+  const data = await lookupCep(cep!)
+  if ((data as any)?.erro) return c.body(null, 404)
+
+  return c.json({
+    cep: data.cep,
+    street: data.logradouro,
+    neighborhood: data.bairro,
+    city: data.localidade,
+    state: data.uf
+  })
+})
+
+export default app
