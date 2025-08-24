@@ -86,26 +86,14 @@ app.get('/favicon-32x32.png', async (c) => {
 
 
 // Spec + full Swagger UI (blue GET, Try it out)
+// OpenAPI spec
 app.get('/openapi.json', (c) => c.json(openapi))
-app.get('/docs-raw', swaggerUI({ url: '/openapi.json' }))
 
-function withFavicons(html: string) {
-  const tags = `
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-  `.trim()
-  return html.includes('</head>')
-    ? html.replace('</head>', `${tags}\n</head>`)
-    : `${tags}\n${html}`
-}
+// Swagger UI — mount directly
+app.get('/docs', swaggerUI({ url: '/openapi.json' }))
 
-app.get('/docs', async (c) => {
-  // fetch the original generated UI HTML and augment it
-  const rawUrl = new URL('/docs-raw', c.req.url).toString()
-  const r = await fetch(rawUrl)
-  const html = await r.text()
-  return c.html(withFavicons(html))
-})
+// Make root open the docs (optional but handy)
+app.get('/', (c) => c.redirect('/docs', 308))
 
 // API
 app.get('/CEP/BuscaCEP', async (c) => {
