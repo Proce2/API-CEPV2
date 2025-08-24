@@ -1,5 +1,5 @@
 {
-  "name": "cep-api-workers",
+  "name": "cepapiv2",
   "main": "src/index.ts",
   "compatibility_date": "2025-08-24"
 }
