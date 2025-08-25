@@ -18,11 +18,8 @@ const openapi = {
     version: 'v2',
     description: 'Api Busca'
   },
-  servers: [
-    { url: 'https://cep.apidocs.workers.dev/', description: 'Production' }
-  ],
   tags: [
-    { name: 'CEP', description: 'Brazilian postal code lookup' }
+    { name: 'CEP' }
   ],
   paths: {
     '/CEP/BuscaCEP': {
