@@ -26,7 +26,7 @@ const openapi = {
       get: {
         tags: ['CEP'],
         parameters: [
-          { name: 'cep', in: 'query', required: true, schema: { type: 'string' }, description: '8 digits' }
+          { name: 'cep', in: 'query', schema: { type: 'string' }, description: '8 digits' }
         ],
         responses: {
           '200': {
