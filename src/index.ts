@@ -13,12 +13,23 @@ function validateCep(raw: string | null): string | null {
 // Minimal OpenAPI spec (served at /openapi.json)
 const openapi = {
   openapi: '3.0.3',
-  info: { title: 'CEP API', version: '0.1.0' },
+  info: {
+    title: 'CEP API',
+    version: 'v2',
+    description: 'Api Busca'
+  },
+  servers: [
+    { url: 'https://<your-project>.workers.dev', description: 'Production' }
+  ],
+  tags: [
+    { name: 'CEP', description: 'Brazilian postal code lookup' }
+  ],
   paths: {
     '/CEP/BuscaCEP': {
       get: {
+        tags: ['CEP'],
         parameters: [
-          { name: 'cep', in: 'query', schema: { type: 'string' }, description: '8 digits' }
+          { name: 'cep', in: 'query', required: true, schema: { type: 'string' }, description: '8 digits' }
         ],
         responses: {
           '200': {
